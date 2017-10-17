@@ -1,6 +1,7 @@
 const fs = require('fs')
 const {
-  fetch
+  HttpGet,
+  ProgressBar
 } = require('./utils/utils')
 const _ = require('lodash')
 const async = require('async')
@@ -71,7 +72,7 @@ class Book {
   init() {
     let slf = this
 
-    fetch(this.url, 'GBK', (resp) => {
+    HttpGet(this.url, 'GBK', (resp) => {
       slf.name = slf.name || slf.parseTitle(resp)
       if (!fs.existsSync(slf.path())) {
         fs.mkdirSync(slf.path())
@@ -86,12 +87,14 @@ class Book {
 
   fetchChapters() {
     let slf = this
+    let pb = new ProgressBar('下载进度', 50);
 
     let start = new Date()
     let q = async.queue((c, cb) => {
       // console.log(`Fetching chapter[${c.idx}] <${c.title}> from url [${c.url}]. local path ${slf.chapterPath(c)}`)
-      fetch(c.url, 'GBK', cb)
+      HttpGet(c.url, 'GBK', cb)
     }, 20)
+
     q.drain = () => {
       console.log('all done in ' + (new Date() - start) + ' ms')
       fs.writeFile(slf.menuPath(), JSON.stringify(slf, null, 2), () => {})
@@ -103,14 +106,22 @@ class Book {
       console.log('no more tasks wating after ' + (new Date() - start) + ' ms')
     }
 
+    let total = 0
+    let completed = 0
+
     _.each(slf.chapters, (c) => {
       if (c.fetched && c.fetched === true) {
         return
       }
+      total++
       q.push(c, (resp) => {
         let text = slf.parseBody(c, resp)
         fs.writeFile(slf.chapterPath(c), text, () => {})
         c.fetched = true
+        pb.render({
+          completed: completed++,
+          total: total
+        })
       })
     })
   }
