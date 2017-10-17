@@ -35,7 +35,7 @@ class biqumo extends Book {
   parseBody(chapter, resp) {
     let root = $(resp)
     let ctx = root.find('.content .showtxt').text().trim()
-    ctx = ctx.replace(/6尘/g, '陆尘').replace(/天才壹秒.*?\n/gm, '').replace(/天才一秒.*?\n/gm, '').replace(/手机用户.*m.biqumo.com/gm, '').replace(/【.*?】/gm, '').replace(/ /g, '')
+    ctx = ctx.replace(/6尘/g, '陆尘').replace(/天才壹秒.*?\n/gm, '').replace(/天才一秒.*?\n/g, '').replace(/天才一秒.*m.biqumo.com/gm, '').replace(/手机用户.*m.biqumo.com/gm, '').replace(/【.*?】/gm, '').replace(/ /g, '')
     return '\n\n' + chapter.title + '\n\n' + ctx
   }
 }
