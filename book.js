@@ -96,14 +96,14 @@ class Book {
     }, 20)
 
     q.drain = () => {
-      console.log('all done in ' + (new Date() - start) + ' ms')
+      console.log('\nAll done in [' + (new Date() - start) + '] ms')
       fs.writeFile(slf.menuPath(), JSON.stringify(slf, null, 2), () => {})
       let cmd = 'cat ' + slf.chapterDir() + '0* > ' + slf.allInOnePath()
       exec(cmd)
     }
 
     q.empty = function() {
-      console.log('no more tasks wating after ' + (new Date() - start) + ' ms')
+      console.log('\nNo more tasks wating after [' + (new Date() - start) + '] ms')
     }
 
     let total = 0
