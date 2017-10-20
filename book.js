@@ -69,7 +69,7 @@ class Book {
     slf.chapters = obook.chapters.concat(diff)
   }
 
-  init() {
+  fetch(replaceMap) {
     let slf = this
 
     HttpGet(this.url, 'GBK', (resp) => {
@@ -81,11 +81,11 @@ class Book {
       slf.chapters = slf.parseMenu(resp)
       slf.mergeMenu()
       fs.writeFile(slf.menuPath(), JSON.stringify(slf, null, 2), () => {})
-      slf.fetchChapters()
+      slf.fetchChapters(replaceMap)
     })
   }
 
-  fetchChapters() {
+  fetchChapters(replaceMap) {
     let slf = this
     let pb = new ProgressBar('下载进度', 50);
 
@@ -115,13 +115,13 @@ class Book {
       }
       total++
       q.push(c, (resp) => {
-        let text = slf.parseBody(c, resp)
-        fs.writeFile(slf.chapterPath(c), text, () => {})
-        c.fetched = true
+        let text = slf.parseBody(c, resp, replaceMap || {})
         pb.render({
           completed: completed++,
           total: total
         })
+        fs.writeFile(slf.chapterPath(c), text, () => {})
+        c.fetched = true
       })
     })
   }

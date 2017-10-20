@@ -7,6 +7,15 @@ const Book = require('../book')
 
 const ROOT = 'http://www.biqumo.com'
 
+
+const biqumoReplaceMap = {
+  '天才壹秒.*?\n': '',
+  '天才一秒.*m.biqumo.com': '',
+  '手机用户.*m.biqumo.com': '',
+  '【.*?】': '',
+  ' ': ''
+}
+
 class biqumo extends Book {
 
   constructor(path, name) {
@@ -32,10 +41,13 @@ class biqumo extends Book {
     return menus
   }
 
-  parseBody(chapter, resp) {
+  parseBody(chapter, resp, replaceMap) {
     let root = $(resp)
     let ctx = root.find('.content .showtxt').text().trim()
-    ctx = ctx.replace(/6尘/g, '陆尘').replace(/天才壹秒.*?\n/gm, '').replace(/天才一秒.*?\n/g, '').replace(/天才一秒.*m.biqumo.com/gm, '').replace(/手机用户.*m.biqumo.com/gm, '').replace(/【.*?】/gm, '').replace(/ /g, '')
+    let map = _.extend(biqumoReplaceMap, replaceMap)
+    _.each(map, (v, k) => {
+      ctx = ctx.replace(new RegExp(k, 'g'), replaceMap[v]||'')
+    })
     return '\n\n' + chapter.title + '\n\n' + ctx
   }
 }
