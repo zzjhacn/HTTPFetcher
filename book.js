@@ -87,7 +87,7 @@ class Book {
 
   fetchChapters(replaceMap) {
     let slf = this
-    let pb = new ProgressBar('下载进度', 50);
+    let pb = new ProgressBar(this.name, 50);
 
     let start = new Date()
     let q = async.queue((c, cb) => {
@@ -96,14 +96,14 @@ class Book {
     }, 20)
 
     q.drain = () => {
-      console.log('\nAll done in [' + (new Date() - start) + '] ms')
+      console.log(`\n${slf.name} done in [${(new Date() - start)}] ms`)
       fs.writeFile(slf.menuPath(), JSON.stringify(slf, null, 2), () => {})
       let cmd = 'cat ' + slf.chapterDir() + '0* > ' + slf.allInOnePath()
       exec(cmd)
     }
 
     q.empty = function() {
-      console.log('\nNo more tasks wating after [' + (new Date() - start) + '] ms')
+      // console.log('\nNo more tasks wating after [' + (new Date() - start) + '] ms')
     }
 
     let total = 0
@@ -117,7 +117,7 @@ class Book {
       q.push(c, (resp) => {
         let text = slf.parseBody(c, resp, replaceMap || {})
         pb.render({
-          completed: completed++,
+          completed: ++completed,
           total: total
         })
         fs.writeFile(slf.chapterPath(c), text, () => {})
