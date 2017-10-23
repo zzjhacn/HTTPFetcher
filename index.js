@@ -1,16 +1,26 @@
 const biqumo = require('./biqumo/')
+const lrts = require('./lrts/')
 const _ = require('lodash')
 const async = require('async')
 
-const biqumoList = require('./.biqumo.list.json')
+const tasks = require('./task.json')
 
-let start = new Date()
-let q = async.queue((b, cb) => {
+let qb = async.queue((b, cb) => {
   b.start = new Date()
   new biqumo(b.id, b.name).fetch(b.replaceMap || {})
   cb()
 }, 1)
 
-_.each(biqumoList, (b) => {
-  q.push(b, () => {})
+_.each(tasks.biqumo, (b) => {
+  qb.push(b, () => {})
+})
+
+let ql = async.queue((b, cb) => {
+  b.start = new Date()
+  new lrts(b.type || '2', b.id, b.name).fetch()
+  cb()
+}, 1)
+
+_.each(tasks.lrts, (b) => {
+  ql.push(b, () => {})
 })

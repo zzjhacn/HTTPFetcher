@@ -32,6 +32,22 @@ let HttpGet = (path, charset, cb) => {
   })
 }
 
+let Download = (path, charset, cb) => {
+  proto(path).get(path, (res) => {
+    var fileBuff = []
+    res.on('data', (chunk) => {
+      fileBuff.push(new Buffer(chunk))
+    })
+    res.on('end', () => {
+      try {
+        cb(Buffer.concat(fileBuff))
+      } catch (e) {
+        console.error(e.message)
+      }
+    })
+  })
+}
+
 class ProgressBar {
   constructor(description, bar_length) {
     this.description = description || 'Progress'
@@ -60,5 +76,6 @@ class ProgressBar {
 
 module.exports = {
   HttpGet,
+  Download,
   ProgressBar
 }

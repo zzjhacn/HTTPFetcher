@@ -11,11 +11,12 @@ const {
 
 class Book {
 
-  constructor(url, name) {
+  constructor(url, name, charset = 'GBK') {
     this.url = url
     this.name = name
     this.fetchTime = new Date()
     this.chapters = []
+    this.charset = charset
   }
 
   path() {
@@ -51,6 +52,10 @@ class Book {
     throw new Error('not impled')
   }
 
+  doPost() {
+
+  }
+
   mergeMenu() {
     let slf = this
     let e = fs.existsSync(slf.menuPath())
@@ -72,7 +77,7 @@ class Book {
   fetch(replaceMap) {
     let slf = this
 
-    HttpGet(this.url, 'GBK', (resp) => {
+    HttpGet(this.url, this.charset, (resp) => {
       slf.name = slf.name || slf.parseTitle(resp)
       if (!fs.existsSync(slf.path())) {
         fs.mkdirSync(slf.path())
@@ -92,7 +97,7 @@ class Book {
     let start = new Date()
     let q = async.queue((c, cb) => {
       // console.log(`Fetching chapter[${c.idx}] <${c.title}> from url [${c.url}]. local path ${slf.chapterPath(c)}`)
-      HttpGet(c.url, 'GBK', cb)
+      HttpGet(c.url, slf.charset, cb)
     }, 20)
 
     q.drain = () => {
@@ -100,6 +105,7 @@ class Book {
       fs.writeFile(slf.menuPath(), JSON.stringify(slf, null, 2), () => {})
       let cmd = 'cat ' + slf.chapterDir() + '0* > ' + slf.allInOnePath()
       exec(cmd)
+      slf.doPost()
     }
 
     q.empty = function() {
