@@ -76,6 +76,7 @@ class Book {
         slf._updatepb('steps - contents done', 5, STEPS)
         slf._doPost()
         slf._updatepb('steps - all done', 6, STEPS)
+        console.log(`${slf.name} fetched`)
       })
       .catch((e) => {
         console.log(e)
