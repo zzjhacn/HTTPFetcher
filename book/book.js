@@ -76,7 +76,7 @@ class Book {
         slf._updatepb('steps - contents done', 5, STEPS)
         slf._doPost()
         slf._updatepb('steps - all done', 6, STEPS)
-        console.log(`${slf.name} fetched`)
+        console.log(`\n${slf.name} fetched`)
       })
       .catch((e) => {
         console.log(e)
@@ -144,6 +144,9 @@ class Book {
 
   _doPost() {
     fs.writeFile(this.indexPath, JSON.stringify(this, null, 2), () => {})
+    if (this.allInOnePath) {
+      exec(`cat ${this.chapterDir}/* > ${this.allInOnePath}`)
+    }
   }
 }
 

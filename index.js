@@ -1,20 +1,6 @@
 const book = require('./book')
 const _ = require('lodash')
-// const tasks = require('./task.json')
-
-const tasks = {
-  "biqumo": [{
-    "id": "3_3407",
-    "name": "天影2",
-    "replaceMap": {
-      "6尘": "陆尘"
-    }
-  }],
-  "lrts": [{
-    "id": "229",
-    "name": "货币战争2"
-  }]
-}
+const tasks = require('./task.json')
 
 
 // format of task.json
@@ -36,10 +22,3 @@ _.each(tasks, (books, site) => {
     new book[site](bookConfig).fetch()
   })
 })
-
-
-// new book.lrts({
-//   "id": "229",
-//   "name": "货币战争2"
-// }).fetch()
-// new book.biqumo(tasks.biqumo[0]).fetch()
