@@ -3,9 +3,10 @@ const http = require('http')
 const https = require('https')
 const iconv = require('iconv-lite')
 const slog = require('single-line-log').stdout
+const async = require('async')
 
-let trans = (rawData, charset) => {
-  return iconv.decode(Buffer.concat([Buffer.from(rawData, 'utf16le')]), charset)
+let trans = (buff, charset) => {
+  return iconv.decode(buff, charset)
 }
 
 let proto = (_url) => {
@@ -15,37 +16,8 @@ let proto = (_url) => {
     http
 }
 
-let HttpGet = (path, charset, cb) => {
-  proto(path).get(path, (res) => {
-    res.setEncoding('utf16le')
-    let rawData = ''
-    res.on('data', (chunk) => {
-      rawData += chunk
-    })
-    res.on('end', () => {
-      try {
-        cb(trans(rawData, charset))
-      } catch (e) {
-        console.error(e.message)
-      }
-    })
-  })
-}
-
-let Download = (path, charset, cb) => {
-  proto(path).get(path, (res) => {
-    var fileBuff = []
-    res.on('data', (chunk) => {
-      fileBuff.push(new Buffer(chunk))
-    })
-    res.on('end', () => {
-      try {
-        cb(Buffer.concat(fileBuff))
-      } catch (e) {
-        console.error(e.message)
-      }
-    })
-  })
+let Prefix = (id, l) => {
+  return ('' + (Math.pow(10, l || 4) + id)).substring(1)
 }
 
 class ProgressBar {
@@ -68,14 +40,42 @@ class ProgressBar {
       empty += '░'
     }
 
-    var cmdText = this.description + ': ' + (100 * percent).toFixed(2) + '% ' + cell + empty + ' ' + opts.completed + '/' + opts.total
+    var cmdText = (opts.desc || this.description) + ': ' + (100 * percent).toFixed(2) + '% ' + cell + empty + ' ' + opts.completed + '/' + opts.total
 
     slog(cmdText)
   }
 }
 
+
+let q = async.queue((path, cb) => {
+  proto(path).get(path, (res) => {
+    var fileBuff = []
+    res.on('data', (chunk) => {
+      fileBuff.push(new Buffer(chunk))
+    })
+    res.on('end', () => {
+      try {
+        cb(Buffer.concat(fileBuff))
+      } catch (e) {
+        console.error(e.message)
+      }
+    })
+  })
+}, 20)
+
+let HttpGet = (path, cb) => {
+  q.push(path, cb)
+}
+
+let HttpGetTxt = (path, charset, cb) => {
+  HttpGet(path, (resp) => {
+    cb(trans(resp, charset))
+  })
+}
+
 module.exports = {
   HttpGet,
-  Download,
+  HttpGetTxt,
+  Prefix,
   ProgressBar
 }

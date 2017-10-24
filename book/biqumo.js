@@ -3,11 +3,10 @@ const {
 } = require('jsdom')
 const $ = require('jquery')(new JSDOM('<html></html>').window)
 const _ = require('lodash')
-const Book = require('../book')
+
+const Book = require('./book')
 
 const ROOT = 'http://www.biqumo.com'
-
-
 const biqumoReplaceMap = {
   '天才壹秒.*?\n': '',
   '天才一秒.*m.biqumo.com': '',
@@ -18,37 +17,42 @@ const biqumoReplaceMap = {
 
 class biqumo extends Book {
 
-  constructor(path, name) {
-    super(ROOT + '/' + path + '/', name)
+  constructor(cfg) {
+    cfg.url = ROOT + '/' + cfg.id + '/'
+    super(cfg)
   }
 
-  parseTitle(resp) {
+  _parseBookName(resp) {
     let root = $(resp)
     return root.find('dt').text().trim()
   }
 
-  parseMenu(resp) {
+  _parseTableOfContents(resp) {
     let root = $(resp)
-    let menus = []
+    let chapters = []
     let idx = 0;
     root.find('dd a').each(function() {
-      menus.push({
+      chapters.push({
         url: ROOT + $(this).prop('href'),
         title: $(this).text(),
         idx: idx++
       })
     })
-    return menus
+    return chapters
   }
 
-  parseBody(chapter, resp, replaceMap) {
+  _parseContent(chapter, resp) {
     let root = $(resp)
     let ctx = root.find('.content .showtxt').text().trim()
-    let map = _.extend(biqumoReplaceMap, replaceMap)
+    let map = _.extend(biqumoReplaceMap, this.replaceMap || {})
     _.each(map, (v, k) => {
-      ctx = ctx.replace(new RegExp(k, 'g'), replaceMap[v]||'')
+      ctx = ctx.replace(new RegExp(k, 'g'), v)
     })
-    return '\n\n' + chapter.title + '\n\n' + ctx
+    return ctx
+  }
+
+  _doWithContent(chapter, content) {
+    super._doWithContent(chapter, chapter.title + '\n\n' + content)
   }
 }
 
