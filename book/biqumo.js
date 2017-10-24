@@ -19,6 +19,7 @@ class biqumo extends Book {
 
   constructor(cfg) {
     cfg.url = ROOT + '/' + cfg.id + '/'
+    cfg.path = 'books/biqumo'
     super(cfg)
   }
 

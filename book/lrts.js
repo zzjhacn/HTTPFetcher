@@ -15,6 +15,7 @@ class lrts extends Book {
     cfg.type = 'mp3'
     cfg.url = ROOT + '/2/' + cfg.id
     cfg.charset = 'utf8'
+    cfg.path = 'books/lrts'
     super(cfg)
   }
 

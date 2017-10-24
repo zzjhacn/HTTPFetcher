@@ -4,6 +4,8 @@ const https = require('https')
 const iconv = require('iconv-lite')
 const slog = require('single-line-log').stdout
 const async = require('async')
+const fs = require('fs')
+const path = require('path')
 
 let trans = (buff, charset) => {
   return iconv.decode(buff, charset)
@@ -70,9 +72,34 @@ let HttpGetTxt = (path, charset, cb) => {
   })
 }
 
+let ChkDirs = (dir, cb) => {
+  fs.exists(dir, function(exists) {
+    if (exists) {
+      cb()
+    } else {
+      ChkDirs(path.dirname(dir), () => {
+        fs.mkdir(dir, cb)
+      })
+    }
+  })
+}
+
+let ChkDirsSync = (dir) => {
+  if (fs.existsSync(dir)) {
+    return true
+  } else {
+    if (ChkDirsSync(path.dirname(dir))) {
+      fs.mkdirSync(dir)
+      return true
+    }
+  }
+}
+
 module.exports = {
   HttpGet,
   HttpGetTxt,
   Prefix,
-  ProgressBar
+  ProgressBar,
+  ChkDirsSync,
+  ChkDirs
 }

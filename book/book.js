@@ -47,10 +47,7 @@ class Book {
     if (this.type === 'txt') {
       this.allInOnePath = `${this.path}/${this.name}合集.txt`
     }
-    if (!fs.existsSync(this.path)) {
-      fs.mkdirSync(this.path)
-      fs.mkdirSync(this.chapterDir)
-    }
+    utils.ChkDirsSync(this.chapterDir)
     if (fs.existsSync(this.indexPath)) {
       this.chapters = require('../' + this.indexPath).chapters
     }
