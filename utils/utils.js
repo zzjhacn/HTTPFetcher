@@ -6,8 +6,14 @@ const slog = require('single-line-log').stdout
 const async = require('async')
 const fs = require('fs')
 const path = require('path')
+const _ = require('lodash')
+
+const max_processors = 20
 
 let trans = (buff, charset) => {
+  if (buff === null) {
+    return null
+  }
   return iconv.decode(buff, charset)
 }
 
@@ -23,25 +29,47 @@ let Prefix = (id, l) => {
 }
 
 let q = async.queue((path, cb) => {
-  proto(path).get(path, (res) => {
+  // console.log(`requesting ${path}`)
+  let req = proto(path).get(path, (res) => {
     var fileBuff = []
-    res.on('data', (chunk) => {
-      fileBuff.push(new Buffer(chunk))
-    })
-    res.on('end', () => {
-      try {
-        cb(Buffer.concat(fileBuff))
-      } catch (e) {
-        console.error(e.message)
-      }
-    })
+    res
+      .on('data', (chunk) => {
+        fileBuff.push(new Buffer(chunk))
+      })
+      .on('end', () => {
+        try {
+          cb(Buffer.concat(fileBuff))
+        } catch (e) {
+          // cb(null)
+          // console.error(e)
+        }
+      })
+      .on('error', e => {
+        // console.log('resp meet error')
+        // console.error(e)
+        cb(null)
+        // throw e
+      })
   })
-}, 20)
+  req.on('error', (e) => {
+    // console.log('req meet error')
+    // console.error(e)
+    cb(null)
+    // throw new Error(e)
+  })
+}, max_processors)
+
+q.error = (e, t) => {
+  // console.error('q meet error')
+  // console.log(t)
+  // console.error(e)
+}
 
 class ProgressBar {
   constructor(description, bar_length) {
     this.description = description || 'Progress'
     this.length = bar_length || 25
+    this.max = this.length
   }
 
   render(opts) {
@@ -57,8 +85,11 @@ class ProgressBar {
       txt += '░'
     }
 
-    let cmdText = `${opts.desc || this.description}: ${(100 * percent).toFixed(2)}%${txt}${opts.completed}/${opts.total}(${q.running()}/${q.length()} processors running...)`
-    slog(cmdText)
+    let cmdText = `${opts.desc || this.description}: ${(100 * percent).toFixed(2)}%${txt}${opts.completed}/${opts.total} (${q.running()}/${q.length()} tasks running...)`
+    this.max = Math.max(this.max, cmdText.length)
+
+    slog(_.padEnd(cmdText, this.max, ' '))
+    // console.log(cmdText)
   }
 }
 
@@ -95,11 +126,16 @@ let ChkDirsSync = (dir) => {
   }
 }
 
+let Exception = (e) => {
+  console.error(e)
+}
+
 module.exports = {
   HttpGet,
   HttpGetTxt,
   Prefix,
   ProgressBar,
   ChkDirsSync,
-  ChkDirs
+  ChkDirs,
+  Exception
 }

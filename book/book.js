@@ -26,6 +26,8 @@ class Book {
       })
     }
 
+    this.logs = []
+
     this.pb = new utils.ProgressBar('', 50)
     this._updatepb('steps - book created', 1, STEPS)
   }
@@ -33,7 +35,7 @@ class Book {
   _updatepb(desc, c, t) {
     let slf = this
     this.pb.render({
-      desc: `[${slf.name}]${desc}`,
+      desc: `[${slf.name||''}]${desc}`,
       completed: c,
       total: t
     })
@@ -43,13 +45,31 @@ class Book {
     this.name = name
     this.path = `${this.path}/${this.name}`
     this.indexPath = `${this.path}/index.json`
+    this.logPath = `${this.path}/log.log`
     this.chapterDir = `${this.path}/chapters/`
     if (this.type === 'txt') {
       this.allInOnePath = `${this.path}/${this.name}合集.txt`
     }
     utils.ChkDirsSync(this.chapterDir)
     if (fs.existsSync(this.indexPath)) {
-      this.chapters = require('../' + this.indexPath).chapters
+      try {
+        this.chapters = require('../' + this.indexPath).chapters
+      } catch (e) {
+        this.chapters = []
+      }
+    }
+  }
+
+  _log(log) {
+    this.logs.push({
+      time: new Date(),
+      msg: log
+    })
+  }
+
+  _err() {
+    return (e) => {
+      this._log(e)
     }
   }
 
@@ -74,31 +94,39 @@ class Book {
         slf._doPost()
         slf._updatepb('steps - all done', 6, STEPS)
         console.log(`\n${slf.name} fetched`)
+        _.each(slf.logs, l => {
+          console.log(l)
+        })
       })
-      .catch((e) => {
-        console.log(e)
-      })
+      .catch(slf._err())
   }
 
   _fetchTableOfContents() {
     let slf = this
     let def = Q.defer()
     utils.HttpGetTxt(this.url, this.charset, (resp) => {
-      Q(slf._parseTableOfContents(resp))
-        .then((toc) => {
-          _.each(toc, (chapter) => {
-            if (_.find(slf.chapters, {
-                url: chapter.url
-              })) {
-              return
-            }
-            chapter.idx = slf.chapters.length
-            chapter.path = `books/${slf.name}/chapters/${utils.Prefix(chapter.idx)}_${chapter.title}.${slf.type}`
-            slf.chapters.push(chapter)
+      if (resp === null) {
+        def.reject(`[${slf.name}]fetch table of contents error`)
+      } else {
+        Q(slf._parseTableOfContents(resp))
+          .then((toc) => {
+            _.each(toc, (chapter) => {
+              if (_.find(slf.chapters, {
+                  url: chapter.url
+                })) {
+                return
+              }
+              chapter.idx = slf.chapters.length
+              chapter.title = chapter.title.replace(/\//g, '_').replace(/ /g, '')
+              chapter.path = `${slf.chapterDir}${utils.Prefix(chapter.idx)}_${chapter.title}.${slf.type}`
+              chapter.fetched = fs.existsSync(chapter.path)
+              slf.chapters.push(chapter)
+            })
+            slf._save()
+            def.resolve()
           })
-          fs.writeFile(slf.indexPath, JSON.stringify(slf, null, 2), () => {})
-          def.resolve()
-        })
+          .catch(slf._err())
+      }
     })
     return def.promise
   }
@@ -116,6 +144,11 @@ class Book {
       if (slf.type === 'txt') {
         promises.push(new Promise((r) => {
           utils.HttpGetTxt(chapter.url, slf.charset, (resp) => {
+            if (resp === null) {
+              slf._log(`[${slf.name}]fetching content of ${chapter.title} meet error`)
+              r()
+              return
+            }
             slf._doWithContent(chapter, slf._parseContent(chapter, resp))
             slf._updatepb('fetching', ++completed, total)
             r()
@@ -124,6 +157,11 @@ class Book {
       } else {
         promises.push(new Promise((r) => {
           utils.HttpGet(chapter.url, (resp) => {
+            if (resp === null) {
+              slf._log(`[${slf.name}]fetching content of ${chapter.title} meet error`)
+              r()
+              return
+            }
             slf._doWithContent(chapter, resp)
             slf._updatepb('fetching', ++completed, total)
             r()
@@ -135,15 +173,47 @@ class Book {
   }
 
   _doWithContent(chapter, content) {
-    fs.writeFile(chapter.path, content, () => {})
+    fs.writeFile(chapter.path, content, this._err())
     chapter.fetched = true
+    this._save()
+  }
+
+  _save() {
+    fs.writeFile(this.logPath, JSON.stringify(this.logs, null, 2), this._err())
+
+    fs.writeFile(this.indexPath, JSON.stringify(this, (k, v) => {
+      if (['logs', '_getName', 'pb'].indexOf(k) > -1) {
+        return undefined
+      }
+      return v
+    }, 2), this._err())
   }
 
   _doPost() {
-    fs.writeFile(this.indexPath, JSON.stringify(this, null, 2), () => {})
     if (this.allInOnePath) {
-      exec(`cat ${this.chapterDir}/* > ${this.allInOnePath}`)
+      exec(`> ${this.allInOnePath}`)
     }
+    let fail = 0
+    let succ = 0
+    _.each(this.chapters, c => {
+      if (c.fetched === true) {
+        if (!fs.existsSync(c.path)) {
+          c.fetched = false
+          fail++
+        } else {
+          succ++
+          if (this.allInOnePath) {
+            exec(`cat '${c.path}' >> '${this.allInOnePath}'`)
+            exec(`echo '' >> '${this.allInOnePath}'`)
+            // exec(`cp ${this.chapterDir}/*  ${this.allInOnePath}`)
+          }
+        }
+      } else {
+        fail++
+      }
+    })
+    this._log(`[${this.name}] failed [${fail}], successed [${succ}]`)
+    this._save()
   }
 }
 
