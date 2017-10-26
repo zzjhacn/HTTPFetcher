@@ -16,6 +16,7 @@ const tasks = require('./task.json')
  *  {
  *    id: '',
  *    name: '',
+ *    serial: true,
  *    replaceMap: {
  *      src: tgt
  *    }

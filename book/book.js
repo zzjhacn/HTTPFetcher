@@ -13,11 +13,13 @@ class Book {
   constructor(cfg) {
     this.url = cfg.url
     this.fetchTime = cfg.fetchTime || new Date()
+    this.serial = cfg.serial || false
     this.charset = cfg.charset || 'GBK'
     this.type = cfg.type || 'txt'
     this.chapters = []
     this.replaceMap = cfg.replaceMap || {}
     this.path = cfg.path || 'books'
+    this.name = cfg.name || ''
 
     let slf = this
     this._getName = cfg.name || function() {
@@ -35,7 +37,7 @@ class Book {
   _updatepb(desc, c, t) {
     let slf = this
     this.pb.render({
-      desc: `[${slf.name||''}]${desc}`,
+      desc: `[${slf.name || ''}]${desc}`,
       completed: c,
       total: t
     })
@@ -52,19 +54,22 @@ class Book {
     }
     utils.ChkDirsSync(this.chapterDir)
     if (fs.existsSync(this.indexPath)) {
+      let curr
       try {
-        this.chapters = require('../' + this.indexPath).chapters
+        curr = require('../' + this.indexPath)
       } catch (e) {
         this.chapters = []
       }
+      if (curr.finished === true) {
+        console.log(`[${this.name}] already finished`)
+        throw new Error('already finished')
+      }
+      this.chapters = curr.chapters
     }
   }
 
   _log(log) {
-    this.logs.push({
-      time: new Date(),
-      msg: log
-    })
+    this.logs.push({time: new Date(), msg: log})
   }
 
   _err() {
@@ -76,29 +81,24 @@ class Book {
   fetch() {
     let slf = this
 
-    Q(slf._getName)
-      .then((name) => {
-        slf._updatepb('steps - name fetched', 2, STEPS)
-        return Q(slf._init(name))
+    Q(slf._getName).then((name) => {
+      slf._updatepb('steps - name fetched', 2, STEPS)
+      return Q(slf._init(name))
+    }).then(() => {
+      slf._updatepb('steps - inited', 3, STEPS)
+      return slf._fetchTableOfContents()
+    }).then(() => {
+      slf._updatepb('steps - table of contents done', 4, STEPS)
+      return slf._fetchChapters()
+    }).then(() => {
+      slf._updatepb('steps - contents done', 5, STEPS)
+      slf._doPost()
+      slf._updatepb('steps - all done', 6, STEPS)
+      console.log(`\n${slf.name} fetched`)
+      _.each(slf.logs, l => {
+        console.log(l)
       })
-      .then(() => {
-        slf._updatepb('steps - inited', 3, STEPS)
-        return slf._fetchTableOfContents()
-      })
-      .then(() => {
-        slf._updatepb('steps - table of contents done', 4, STEPS)
-        return slf._fetchChapters()
-      })
-      .then(() => {
-        slf._updatepb('steps - contents done', 5, STEPS)
-        slf._doPost()
-        slf._updatepb('steps - all done', 6, STEPS)
-        console.log(`\n${slf.name} fetched`)
-        _.each(slf.logs, l => {
-          console.log(l)
-        })
-      })
-      .catch(slf._err())
+    }).catch(slf._err())
   }
 
   _fetchTableOfContents() {
@@ -108,24 +108,20 @@ class Book {
       if (resp === null) {
         def.reject(`[${slf.name}]fetch table of contents error`)
       } else {
-        Q(slf._parseTableOfContents(resp))
-          .then((toc) => {
-            _.each(toc, (chapter) => {
-              if (_.find(slf.chapters, {
-                  url: chapter.url
-                })) {
-                return
-              }
-              chapter.idx = slf.chapters.length
-              chapter.title = chapter.title.replace(/\//g, '_').replace(/ /g, '')
-              chapter.path = `${slf.chapterDir}${utils.Prefix(chapter.idx)}_${chapter.title}.${slf.type}`
-              chapter.fetched = fs.existsSync(chapter.path)
-              slf.chapters.push(chapter)
-            })
-            slf._save()
-            def.resolve()
+        Q(slf._parseTableOfContents(resp)).then((toc) => {
+          _.each(toc, (chapter) => {
+            if (_.find(slf.chapters, {url: chapter.url})) {
+              return
+            }
+            chapter.idx = slf.chapters.length
+            chapter.title = chapter.title.replace(/\//g, '_').replace(/ /g, '')
+            chapter.path = `${slf.chapterDir}${utils.Prefix(chapter.idx)}_${chapter.title}.${slf.type}`
+            chapter.fetched = fs.existsSync(chapter.path)
+            slf.chapters.push(chapter)
           })
-          .catch(slf._err())
+          slf._save()
+          def.resolve()
+        }).catch(slf._err())
       }
     })
     return def.promise
@@ -201,7 +197,7 @@ class Book {
           c.fetched = false
           fail++
         } else {
-          succ++
+          succ++;
           if (this.allInOnePath) {
             exec(`cat '${c.path}' >> '${this.allInOnePath}'`)
             exec(`echo '' >> '${this.allInOnePath}'`)
@@ -212,6 +208,7 @@ class Book {
         fail++
       }
     })
+    this.finished = (this.serial === false && fail === 0)
     this._log(`[${this.name}] failed [${fail}], successed [${succ}]`)
     this._save()
   }
